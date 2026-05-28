@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Activity, X, Bot } from 'lucide-react';
+import { Mic, MicOff, Activity, X, Bot } from 'lucide-react';
 import { pcmToBase64, AudioStreamPlayer } from '../lib/audio';
 
 export default function LiveMode() {
   const [isActive, setIsActive] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false); // Whether the user is speaking (approximate based on volume level later if needed)
   const [agentSpeaking, setAgentSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const isMutedRef = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -43,17 +45,21 @@ export default function LiveMode() {
 
       processor.onaudioprocess = (e) => {
         if (ws.readyState === WebSocket.OPEN) {
-           const base64 = pcmToBase64(e.inputBuffer.getChannelData(0));
-           ws.send(JSON.stringify({ audio: base64 }));
-           
-           // Simple volume meter logic to animate mic
-           const data = e.inputBuffer.getChannelData(0);
-           let sum = 0;
-           for(let i=0; i<data.length; i++) {
-               sum += Math.abs(data[i]);
+           if (!isMutedRef.current) {
+             const base64 = pcmToBase64(e.inputBuffer.getChannelData(0));
+             ws.send(JSON.stringify({ audio: base64 }));
+             
+             // Simple volume meter logic to animate mic
+             const data = e.inputBuffer.getChannelData(0);
+             let sum = 0;
+             for(let i=0; i<data.length; i++) {
+                 sum += Math.abs(data[i]);
+             }
+             const avg = sum / data.length;
+             setIsSpeaking(avg > 0.02);
+           } else {
+             setIsSpeaking(false);
            }
-           const avg = sum / data.length;
-           setIsSpeaking(avg > 0.02);
         }
       };
 
@@ -107,6 +113,14 @@ export default function LiveMode() {
     setIsActive(false);
     setIsSpeaking(false);
     setAgentSpeaking(false);
+    setIsMuted(false);
+    isMutedRef.current = false;
+  };
+
+  const toggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    isMutedRef.current = newMuted;
   };
 
   return (
@@ -150,23 +164,36 @@ export default function LiveMode() {
         {/* Info Text */}
         <div className="text-center mb-12 h-16">
            <h3 className="text-3xl font-light tracking-[0.2em] text-cyan-100 mb-2">
-             {isActive ? (agentSpeaking ? "AURA RESPONDING" : "LISTENING...") : "SYSTEM STANDBY"}
+             {isActive ? (agentSpeaking ? "AURA RESPONDING" : (isMuted ? "MIC MUTEX" : "LISTENING...")) : "SYSTEM STANDBY"}
            </h3>
            <p className="font-mono text-xs uppercase tracking-widest text-cyan-400/60">
-             {isActive ? "Real-time Neural Link Active" : "Initialize live sequence to begin."}
+             {isActive ? (isMuted ? "Input transmission paused" : "Real-time Neural Link Active") : "Initialize live sequence to begin."}
            </p>
         </div>
 
         {/* Controls */}
         <div>
            {isActive ? (
-             <button
-               onClick={stopLiveSession}
-               className="flex items-center gap-2 px-8 py-4 rounded-full bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors font-mono text-xs uppercase tracking-widest"
-             >
-               <X size={16} />
-               End Session
-             </button>
+             <div className="flex items-center gap-4">
+               <button
+                 onClick={toggleMute}
+                 className={`flex items-center gap-2 px-8 py-4 rounded-full border transition-colors font-mono text-xs uppercase tracking-widest ${
+                   isMuted 
+                     ? 'bg-amber-500/10 text-amber-500 border-amber-500/30 hover:bg-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.2)]' 
+                     : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/20'
+                 }`}
+               >
+                 {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                 {isMuted ? "Muted" : "Mute"}
+               </button>
+               <button
+                 onClick={stopLiveSession}
+                 className="flex items-center gap-2 px-8 py-4 rounded-full bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors font-mono text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(239,68,68,0.2)]"
+               >
+                 <X size={16} />
+                 End Session
+               </button>
+             </div>
            ) : (
              <button
                onClick={startLiveSession}
