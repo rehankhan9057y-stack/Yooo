@@ -1,4 +1,4 @@
-export type Mode = 'chat' | 'live';
+export type Mode = 'landing' | 'chat' | 'live';
 
 export interface ChatMessage {
   id: string;
