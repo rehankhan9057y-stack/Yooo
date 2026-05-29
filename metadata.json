@@ -1,6 +1,6 @@
 {
   "name": "Aura Virtual Companion",
   "description": "An AI wife with Live Voice and Chat mode powered by Gemini Interactions.",
-  "requestFramePermissions": ["microphone"],
+  "requestFramePermissions": ["microphone", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

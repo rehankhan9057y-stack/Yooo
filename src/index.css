@@ -17,3 +17,54 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
+
+/* Custom Character Animations */
+@keyframes breathing {
+  0%, 100% {
+    transform: scaleY(1) translateY(0);
+  }
+  50% {
+    transform: scaleY(1.02) translateY(-4px);
+  }
+}
+
+@keyframes speaking {
+  0%, 100% {
+    transform: scaleY(1.01) translateY(-2px);
+  }
+  25% {
+    transform: scaleY(1.0) translateY(0px) rotate(0.5deg);
+  }
+  50% {
+    transform: scaleY(1.02) translateY(-4px) rotate(-0.5deg);
+  }
+  75% {
+    transform: scaleY(0.99) translateY(1px);
+  }
+}
+
+.animate-breathing {
+  animation: breathing 4s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.animate-speaking {
+  animation: speaking 0.4s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes heartbeat {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.03); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.03); }
+  70% { transform: scale(1); }
+}
+
+.animate-heartbeat {
+  animation: heartbeat 2.5s ease-in-out infinite;
+}
+.animate-heartbeat-fast {
+  animation: heartbeat 1.2s ease-in-out infinite;
+}
+

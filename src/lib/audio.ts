@@ -31,6 +31,7 @@ export function pcmToBase64(pcmData: Float32Array): string {
  */
 export class AudioStreamPlayer {
   private audioCtx: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
   private nextStartTime: number = 0;
   private isPlaying: boolean = false;
   
@@ -38,10 +39,13 @@ export class AudioStreamPlayer {
     this.audioCtx = ctx;
     this.nextStartTime = ctx.currentTime;
     this.isPlaying = true;
+    this.analyser = ctx.createAnalyser();
+    this.analyser.fftSize = 256;
+    this.analyser.connect(ctx.destination);
   }
 
   playChunk(base64Audio: string) {
-    if (!this.audioCtx || !this.isPlaying) return;
+    if (!this.audioCtx || !this.isPlaying || !this.analyser) return;
     
     // Decode base64 to Int16Array
     const binary = atob(base64Audio);
@@ -64,7 +68,7 @@ export class AudioStreamPlayer {
     // Schedule playback
     const source = this.audioCtx.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(this.audioCtx.destination);
+    source.connect(this.analyser);
     
     const currentTime = this.audioCtx.currentTime;
     if (this.nextStartTime < currentTime) {
@@ -73,6 +77,24 @@ export class AudioStreamPlayer {
     
     source.start(this.nextStartTime);
     this.nextStartTime += audioBuffer.duration;
+  }
+
+  getVolume(): number {
+    if (!this.analyser) return 0;
+    const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+    this.analyser.getByteFrequencyData(dataArray);
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      sum += dataArray[i];
+    }
+    return (sum / dataArray.length) / 255.0;
+  }
+
+  getFrequencyData(): Uint8Array | null {
+    if (!this.analyser) return null;
+    const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+    this.analyser.getByteFrequencyData(dataArray);
+    return dataArray;
   }
 
   interrupt() {

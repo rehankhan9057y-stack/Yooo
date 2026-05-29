@@ -32,7 +32,8 @@ export default function ChatMode() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+      const res = await fetch(`${backendUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage.text, previousInteractionId: interactionId })
