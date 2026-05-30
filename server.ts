@@ -6,7 +6,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const memoryFile = path.join("/tmp", "memory.json");
+const memoryFile = path.join(process.cwd(), "memory.json");
 
 function getMemory() {
   if (fs.existsSync(memoryFile)) {
@@ -135,10 +135,10 @@ async function startServer() {
                 if (call.name === "generateSelfie") {
                   try {
                     console.log("Generating selfie with prompt:", call.args.prompt);
-                    const basePrompt = "A beautiful, photorealistic portrait of Aura, a deeply romantic 25-year-old Indian woman. She has a consistent face: large expressive brown eyes, medium brown skin, a soft jawline, and long dark wavy hair. Cinematic lighting, highly detailed.";
+                    const basePrompt = "A beautiful, photorealistic full-body portrait of Aura, a deeply romantic 25-year-old Indian woman. She is wearing stylish casual clothes, standing gracefully. Full body view from head to toe. She has a consistent face: large expressive brown eyes, medium brown skin, a soft jawline, and long dark wavy hair. Cinematic lighting, highly detailed.";
                     const finalPrompt = call.args.prompt ? `${basePrompt} She is ${call.args.prompt}` : `${basePrompt} She is standing in a beautifully lit room, smiling warmly at the camera.`;
                     const response = await ai.models.generateImages({
-                       model: 'imagen-3.0-generate-001',
+                       model: 'imagen-3.0-generate-002',
                        prompt: finalPrompt,
                        config: {
                           numberOfImages: 1,
@@ -214,7 +214,7 @@ async function startServer() {
           }
           if (image) {
              session.sendRealtimeInput({
-               media: { data: image, mimeType: "image/jpeg" }
+               video: { data: image, mimeType: "image/jpeg" }
              });
           }
           if (text) {

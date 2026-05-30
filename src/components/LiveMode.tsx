@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Activity, X, Bot, Maximize, Minimize, Settings2 } from 'lucide-react';
 import { pcmToBase64, AudioStreamPlayer } from '../lib/audio';
+import { motion } from 'motion/react';
 
 export default function LiveMode() {
   const [isActive, setIsActive] = useState(false);
@@ -12,6 +13,9 @@ export default function LiveMode() {
   const [voice, setVoice] = useState('Aoede');
   const [avatarImage, setAvatarImage] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [mediaFileUrl, setMediaFileUrl] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'video' | 'audio' | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const visualizerRef = useRef<SVGSVGElement>(null);
@@ -127,6 +131,7 @@ export default function LiveMode() {
   };
 
   const startLiveSession = async () => {
+    setErrorMsg(null);
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || window.location.origin;
       const wsUrl = backendUrl.replace(/^http/, 'ws') + `/live?voice=${voice}`;
@@ -241,9 +246,9 @@ export default function LiveMode() {
     } catch (err: any) {
       console.error("Error starting live session:", err);
       if (err.name === "NotAllowedError" || err.message?.includes("Permission denied")) {
-         alert("Microphone permission denied. Please allow microphone access in your browser to use Live Mode.");
+         setErrorMsg("Microphone/Camera permission denied. Please allow access in your browser. If it does not work here, try opening the app in a new tab.");
       } else {
-         alert(`Connection error: ${err.message || 'Could not start live session'}`);
+         setErrorMsg(`Connection error: ${err.message || 'Could not start live session'}`);
       }
       stopLiveSession();
     }
@@ -291,8 +296,17 @@ export default function LiveMode() {
     }
   };
 
+  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (mediaFileUrl) URL.revokeObjectURL(mediaFileUrl);
+      setMediaFileUrl(URL.createObjectURL(file));
+      setMediaType(file.type.startsWith('video/') ? 'video' : 'audio');
+    }
+  };
+
   return (
-    <div ref={containerRef} className={`flex flex-col h-full bg-slate-900/40 border-cyan-500/20 overflow-hidden relative ${isFullscreen ? 'fixed inset-0 z-50 w-full h-full rounded-none border-none bg-slate-950' : 'rounded-2xl border'}`}>
+    <div ref={containerRef} className={`flex flex-row h-full bg-slate-900/40 border-cyan-500/20 overflow-hidden relative ${isFullscreen ? 'fixed inset-0 z-50 w-full h-full rounded-none border-none bg-slate-950' : 'rounded-2xl border'}`}>
       
       {/* Decorative bg glow */}
       <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
@@ -308,24 +322,63 @@ export default function LiveMode() {
         {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
       </button>
 
-      <div className="flex flex-col h-full items-center justify-center z-10 p-8 relative">
+      {/* Left Gallery and Media Panel */}
+      <div className="w-1/4 min-w-[260px] h-full border-r border-cyan-500/20 bg-slate-900/60 p-5 flex flex-col z-20 gap-6 overflow-y-auto">
+         <div className="flex flex-col flex-1">
+           <h4 className="text-cyan-400 font-mono text-[10px] uppercase tracking-widest text-center shadow-[0_0_10px_rgba(34,211,238,0.1)] mb-4 pb-3 border-b border-cyan-500/30">
+             Received Photo Box
+           </h4>
+           <div className="flex-1 min-h-[240px] max-h-[360px] bg-slate-950/50 rounded-xl border-2 border-dashed border-cyan-500/20 hover:border-cyan-500/40 transition-colors flex items-center justify-center overflow-hidden relative group">
+              {avatarImage ? (
+                 <img src={avatarImage} alt="Received Selfie" className="w-full h-full object-cover pointer-events-none transition-transform duration-500 group-hover:scale-105" />
+              ) : (
+                 <div className="text-center p-4 text-cyan-500/40 font-mono text-[10px]">
+                   <p className="mb-2 uppercase tracking-widest text-cyan-500/60 font-semibold opacity-70">Awaiting Photo</p>
+                   Ask Aura to "send a picture" to receive it here.
+                 </div>
+              )}
+           </div>
+         </div>
+
+         <div className="flex flex-col mt-auto pt-6 border-t border-cyan-500/20">
+           <h4 className="text-cyan-400 font-mono text-[10px] uppercase tracking-widest mb-3 text-center">
+             Media Player
+           </h4>
+           <label className="mb-4 cursor-pointer flex flex-col items-center justify-center py-3 px-4 rounded-lg border-2 border-dashed border-cyan-500/30 bg-cyan-900/10 hover:bg-cyan-900/20 transition-colors text-cyan-300 font-mono text-[10px] uppercase">
+             <span>Choose Audio/Video File</span>
+             <input type="file" accept="audio/*,video/*" className="hidden" onChange={handleMediaUpload} />
+           </label>
+           
+           {mediaFileUrl && mediaType === 'audio' && (
+             <audio src={mediaFileUrl} controls className="w-full h-10 rounded shadow-md bg-slate-900" />
+           )}
+           {mediaFileUrl && mediaType === 'video' && (
+             <video src={mediaFileUrl} controls className="w-full rounded-xl border border-cyan-500/30 shadow-md bg-slate-950" />
+           )}
+         </div>
+      </div>
+
+      <div className="flex-1 flex flex-col h-full items-center justify-center z-10 p-8 relative">
         
         {/* Mini Face Box at the top */}
-        <div 
-          className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 overflow-hidden rounded-xl border-2 ${isActive ? (agentSpeaking ? 'border-cyan-400 shadow-[0_0_25px_rgba(34,211,238,0.6)] scale-110' : (isSpeaking ? 'border-green-400 shadow-[0_0_15px_rgba(74,222,128,0.4)] scale-[1.02] translate-y-[-2px]' : 'border-cyan-500/50 scale-100')) : 'opacity-0 scale-50 pointer-events-none'} w-24 h-24 bg-slate-900 flex items-center justify-center`}
-          style={{ transform: isActive && isSpeaking ? `translate(-50%, ${-micVolume * 10}px) scale(${1 + micVolume * 0.1})` : 'translateX(-50%)' }}
+        <motion.div 
+          drag
+          dragConstraints={containerRef}
+          whileDrag={{ scale: 1.2, zIndex: 100, transition: { duration: 0.1 } }}
+          animate={{
+             y: isActive && isSpeaking ? -micVolume * 10 : 0,
+             scale: isActive ? (agentSpeaking ? 1.1 : (isSpeaking ? 1.02 + micVolume * 0.1 : 1)) : 0.5,
+             opacity: isActive ? 1 : 0
+          }}
+          className={`absolute top-4 left-[calc(50%-3rem)] z-50 overflow-hidden rounded-xl border-2 cursor-grab active:cursor-grabbing ${isActive ? (agentSpeaking ? 'border-cyan-400 shadow-[0_0_25px_rgba(34,211,238,0.6)]' : (isSpeaking ? 'border-green-400 shadow-[0_0_15px_rgba(74,222,128,0.4)]' : 'border-cyan-500/50')) : 'pointer-events-none'} w-24 h-24 bg-slate-900 flex items-center justify-center`}
         >
-            {avatarImage ? (
-                <img src={avatarImage} alt="Face" className={`w-full h-full object-cover transition-transform duration-300 ${agentSpeaking ? 'scale-125' : 'scale-110'}`} style={{ objectPosition: 'center 15%' }} />
-            ) : (
-                <Bot className={`w-10 h-10 text-cyan-400 transition-all duration-300 ${agentSpeaking ? 'scale-125' : 'scale-100'}`} />
-            )}
+            <Bot className={`w-10 h-10 text-cyan-400 transition-all duration-300 ${agentSpeaking ? 'scale-125' : 'scale-100'}`} />
             
             {/* User Speaking Indicator under the face */}
             {isSpeaking && (
                <div className="absolute bottom-0 inset-x-0 h-1 bg-green-400"></div>
             )}
-        </div>
+        </motion.div>
 
         {/* Core Visualization */}
         <div className="relative flex items-center justify-center mb-16">
@@ -343,12 +396,7 @@ export default function LiveMode() {
            >
              {Array.from({ length: 90 }).map((_, i) => {
                const angle = (i / 90) * 360;
-               // Adjust radius if rectangular avatar Image is present
-               const isImage = !!avatarImage;
-               // A rounded rectangle might need an elliptical radius, or just a large enough circular radius
-               let radius = isImage ? 260 : 80;
-               // For a rectangle (320x448), diagonal is ~550. Radius of 260 is diameter 520, which is enough
-               // to be somewhat outside most of it, but maybe we adjust it dynamically using CSS or just keep it simple.
+               let radius = 80;
                return (
                  <g key={i} transform={`rotate(${angle}) translate(0, ${-radius})`} className="transition-transform duration-500">
                    <line
@@ -368,25 +416,20 @@ export default function LiveMode() {
            </svg>
 
            {/* Center Core / Character Viewer */}
-           <div 
+           <motion.div 
+             drag
+             dragConstraints={containerRef}
+             whileDrag={{ scale: 1.05, zIndex: 100, transition: { duration: 0.1 } }}
              ref={avatarContainerRef}
-             className={`avatar-container z-10 transition-colors duration-200 relative overflow-hidden flex items-center justify-center ${isActive ? (agentSpeaking ? 'animate-heartbeat-fast' : 'animate-heartbeat border-cyan-600') : 'border-cyan-500/30 bg-slate-900/50'} ${avatarImage ? 'h-[28rem] w-[20rem] rounded-3xl border-2' : 'w-32 h-32 rounded-full border-4'}`}
+             className={`avatar-container z-10 transition-colors duration-200 relative overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing ${isActive ? (agentSpeaking ? 'animate-heartbeat-fast' : 'animate-heartbeat border-cyan-600') : 'border-cyan-500/30 bg-slate-900/50'} w-32 h-32 rounded-full border-4`}
            >
               <div className={`absolute inset-0 bg-gradient-to-t from-cyan-900/40 to-transparent transition-all duration-500 ${agentSpeaking ? 'opacity-100' : 'opacity-0'}`}></div>
               {isActive ? (
-                avatarImage ? (
-                   <img 
-                      src={avatarImage} 
-                      className={`w-full h-full object-cover transition-all duration-300 ${agentSpeaking ? 'animate-speaking scale-105' : 'animate-breathing scale-100'} ${isSpeaking ? '-translate-y-1' : ''}`}
-                      alt="Aura Avatar" 
-                   />
-                ) : (
-                  <Activity size={32} className={`text-cyan-400 transition-all ${agentSpeaking ? 'animate-pulse scale-110' : ''}`} />
-                )
+                <Activity size={32} className={`text-cyan-400 transition-all pointer-events-none ${agentSpeaking ? 'animate-pulse scale-110' : ''}`} />
               ) : (
-                <Bot size={32} className="text-cyan-600/50" />
+                <Bot size={32} className="text-cyan-600/50 pointer-events-none" />
               )}
-           </div>
+           </motion.div>
 
            {/* User Input Visualizer */}
            {isActive && (
@@ -490,6 +533,11 @@ export default function LiveMode() {
                  <Mic size={16} />
                  Initialize Connection
                </button>
+               {errorMsg && (
+                 <div className="w-full max-w-sm text-center p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-[10px] sm:text-xs">
+                   {errorMsg}
+                 </div>
+               )}
                
                <div className="flex items-center gap-3">
                  <Settings2 size={16} className="text-cyan-500/60" />
